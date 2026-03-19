@@ -3,6 +3,7 @@ const path = require("path");
 const { composePlugins, withNx } = require("@nx/webpack");
 const { withReact } = require("@nx/react");
 const { merge } = require("webpack-merge");
+const { responseInterceptor } = require("http-proxy-middleware");
 
 require("dotenv").config({
   // resolve the .env file in the root of the project ../
@@ -26,6 +27,51 @@ const FRONTEND_HMR = process.env.FRONTEND_HMR === "true";
 const FRONTEND_HOSTNAME = FRONTEND_HMR ? process.env.FRONTEND_HOSTNAME || "http://localhost:8010" : "";
 const DJANGO_HOSTNAME = process.env.DJANGO_HOSTNAME || "http://localhost:8080";
 const HMR_PORT = FRONTEND_HMR ? +new URL(FRONTEND_HOSTNAME).port : 8010;
+const DEV_SERVER_ORIGIN = FRONTEND_HOSTNAME || `http://localhost:${HMR_PORT}`;
+const DEV_SERVER_HOST = new URL(DEV_SERVER_ORIGIN).host;
+const DEV_SERVER_PROTO = new URL(DEV_SERVER_ORIGIN).protocol.replace(":", "");
+const IS_DEV_SERVER_HTTPS = DEV_SERVER_PROTO === "https";
+const DJANGO_ORIGIN = new URL(DJANGO_HOSTNAME).origin;
+
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const rewriteSameSiteCookies = (proxyRes) => {
+  const setCookie = proxyRes.headers["set-cookie"];
+
+  if (!Array.isArray(setCookie) || setCookie.length === 0) return;
+
+  proxyRes.headers["set-cookie"] = setCookie.map((cookie) => {
+    let rewrittenCookie = cookie.replace(/;\s*Domain=[^;]+/gi, "");
+
+    if (!IS_DEV_SERVER_HTTPS) {
+      rewrittenCookie = rewrittenCookie
+        .replace(/;\s*Secure/gi, "")
+        .replace(/;\s*SameSite=None/gi, "; SameSite=Lax");
+    }
+
+    return rewrittenCookie;
+  });
+};
+
+const rewriteCsrfHeaders = (proxyReq, req) => {
+  proxyReq.setHeader("Origin", DJANGO_ORIGIN);
+  proxyReq.setHeader("Referer", `${DJANGO_ORIGIN}${req.url}`);
+};
+
+const rewriteBackendOriginInHtml = responseInterceptor(async (responseBuffer, proxyRes) => {
+  rewriteSameSiteCookies(proxyRes);
+
+  const contentType = proxyRes.headers["content-type"] || "";
+
+  if (!/text\/html/i.test(contentType)) {
+    return responseBuffer;
+  }
+
+  const responseBody = responseBuffer.toString("utf8");
+  const rewrittenBody = responseBody.replace(new RegExp(escapeRegex(DJANGO_ORIGIN), "g"), DEV_SERVER_ORIGIN);
+
+  return rewrittenBody;
+});
 
 const LOCAL_ENV = {
   NODE_ENV: mode,
@@ -298,12 +344,39 @@ module.exports = composePlugins(
                 changeOrigin: true,
                 pathRewrite: { "^/api": "" },
                 secure: false,
+                xfwd: true,
+                autoRewrite: true,
+                hostRewrite: DEV_SERVER_HOST,
+                protocolRewrite: DEV_SERVER_PROTO,
+                headers: {
+                  "X-Forwarded-Host": DEV_SERVER_HOST,
+                  "X-Forwarded-Proto": DEV_SERVER_PROTO,
+                  "Accept-Encoding": "identity",
+                },
+                cookieDomainRewrite: "",
+                cookiePathRewrite: "/",
+                onProxyReq: rewriteCsrfHeaders,
+                onProxyRes: rewriteSameSiteCookies,
               },
               {
                 context: ["/"],
                 target: `${DJANGO_HOSTNAME}`,
                 changeOrigin: true,
                 secure: false,
+                xfwd: true,
+                autoRewrite: true,
+                hostRewrite: DEV_SERVER_HOST,
+                protocolRewrite: DEV_SERVER_PROTO,
+                selfHandleResponse: true,
+                headers: {
+                  "X-Forwarded-Host": DEV_SERVER_HOST,
+                  "X-Forwarded-Proto": DEV_SERVER_PROTO,
+                  "Accept-Encoding": "identity",
+                },
+                cookieDomainRewrite: "",
+                cookiePathRewrite: "/",
+                onProxyReq: rewriteCsrfHeaders,
+                onProxyRes: rewriteBackendOriginInHtml,
               },
             ],
           },
