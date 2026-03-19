@@ -1,0 +1,37 @@
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+COPY pyproject.toml ./
+
+WORKDIR /app/web
+
+COPY web/package.json web/yarn.lock ./
+RUN yarn install --frozen-lockfile
+
+COPY web/ ./
+RUN yarn ls:build
+
+FROM caddy:2.9-builder-alpine AS caddy-builder
+
+RUN xcaddy build \
+	--with github.com/caddyserver/replace-response
+
+FROM caddy:2.9-alpine
+
+ENV LS_BACKEND=https://localhost:8080
+ENV LS_BACKEND_ORIGIN=https://localhost:8080
+ENV LS_BACKEND_CA_CERT=
+ENV CADDY_TLS_CERT_FILE=
+ENV CADDY_TLS_KEY_FILE=
+ENV CADDY_PORT=8080
+
+COPY --from=caddy-builder /usr/bin/caddy /usr/bin/caddy
+COPY deploy/frontend-caddy/Caddyfile /etc/caddy/Caddyfile
+COPY deploy/frontend-caddy/start-caddy.sh /usr/local/bin/start-caddy.sh
+COPY --from=builder /app/web/dist/apps/labelstudio /srv/labelstudio
+
+RUN chmod +x /usr/local/bin/start-caddy.sh
+
+EXPOSE 8080
+
+CMD ["/usr/local/bin/start-caddy.sh"]

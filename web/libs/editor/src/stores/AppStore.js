@@ -472,6 +472,11 @@ export default types
         selected.regionStore.toggleVisibility();
       });
 
+      hotkeys.addNamed("region:visibility-unselected", () => {
+        const { selected } = self.annotationStore;
+        selected.regionStore.toggleUnselectedVisibility();
+      });
+
       hotkeys.addNamed("annotation:undo", () => {
         const annotation = self.annotationStore.selected;
 
@@ -520,6 +525,15 @@ export default types
         const c = self.annotationStore.selected;
 
         c && c.regionStore.selectNext();
+      });
+
+      hotkeys.addNamed("region:select-all", (e) => {
+        const c = self.annotationStore.selected;
+
+        if (c && !c.isLinkingMode && !c.isDrawing) {
+          e.preventDefault();
+          c.selectAreas(c.regionStore.regions);
+        }
       });
 
       // duplicate selected regions

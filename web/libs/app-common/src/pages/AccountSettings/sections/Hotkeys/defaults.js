@@ -131,6 +131,15 @@ export const DEFAULT_HOTKEYS = [
     active: true,
   },
   {
+    id: 1550,
+    section: "regions",
+    element: "region:visibility-unselected",
+    label: "Toggle Unselected Region Visibility",
+    key: "alt+shift+h",
+    description: "Show or hide all unselected regions",
+    active: true,
+  },
+  {
     id: 1600,
     section: "regions",
     element: "region:lock",
@@ -182,6 +191,15 @@ export const DEFAULT_HOTKEYS = [
     label: "Cycle Regions",
     key: "alt+.",
     description: "Cycle through all regions",
+    active: true,
+  },
+  {
+    id: 2150,
+    section: "regions",
+    element: "region:select-all",
+    label: "Select All Regions",
+    key: "ctrl+a",
+    description: "Select all regions at once",
     active: true,
   },
   {

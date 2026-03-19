@@ -624,6 +624,17 @@ export default types
       });
     },
 
+    toggleUnselectedVisibility() {
+      const unselectedRegions = self.regions.filter((area) => !self.selection.isSelected(area));
+      const shouldBeHidden = unselectedRegions.some((area) => !area.hidden);
+
+      unselectedRegions.forEach((area) => {
+        if (area.hidden !== shouldBeHidden) {
+          area.toggleHidden();
+        }
+      });
+    },
+
     selectRegionByID(regionId) {
       const normalizedRegionId = self.normalizeRegionID(regionId);
       const targetRegion = self.findRegionID(normalizedRegionId);

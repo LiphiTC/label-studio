@@ -2,11 +2,14 @@
 **
 
 # Except:
+!deploy/
+!deploy/frontend-caddy/
 !deploy/docker-entrypoint.d/**
 !deploy/docker-entrypoint.sh
 !deploy/heroku_run.sh
 !deploy/uwsgi.ini
 !deploy/default.conf
+!deploy/frontend-caddy/**
 !label_studio/**
 # Re-ignore pyc files and frontend
 label_studio/frontend
@@ -24,3 +27,4 @@ label_studio/**/*.pyc
 !LICENSE
 !pyproject.toml
 !poetry.lock
+!Dockerfile.frontend-caddy

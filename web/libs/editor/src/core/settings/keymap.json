@@ -114,6 +114,10 @@
     "mac": "command+h",
     "description": "Toggle all regions visibility"
   },
+  "region:visibility-unselected": {
+    "key": "alt+shift+h",
+    "description": "Toggle unselected regions visibility"
+  },
   "region:lock": {
     "key": "alt+l",
     "description": "Lock selected region"
@@ -137,6 +141,11 @@
   "region:cycle": {
     "key": "alt+.",
     "description": "Cycle through regions"
+  },
+  "region:select-all": {
+    "key": "ctrl+a",
+    "mac": "command+a",
+    "description": "Select all regions"
   },
   "region:duplicate": {
     "key": "ctrl+d",

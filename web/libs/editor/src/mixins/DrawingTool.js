@@ -1,4 +1,4 @@
-import { types } from "mobx-state-tree";
+import { getRoot, types } from "mobx-state-tree";
 
 import Utils from "../utils";
 import { throttle } from "@humansignal/core/lib/utils/lodash-replacements";
@@ -62,6 +62,40 @@ const DrawingTool = types
           Y: (MIN_SIZE.Y / self.obj.stageScale / self.obj.stageHeight) * RELATIVE_STAGE_HEIGHT,
         };
       },
+      /**
+       * Checks whether a point (in internal coordinates) falls inside the dead zone
+       * of any currently selected region. The dead zone is the region's bounding box
+       * expanded by ((width + height) / 2) * 0.05 on every side.
+       * Only active when the `enableDeadZone` setting is enabled.
+       *
+       * @param {number} x - Internal x coordinate (0–100 scale)
+       * @param {number} y - Internal y coordinate (0–100 scale)
+       * @return {boolean} Returns true if the point hits a selected region's dead zone.
+       */
+      isInDeadZone(x, y) {
+        // Tools are standalone MST trees; use self.annotation to reach the app root.
+        const store = getRoot(self.annotation);
+        if (!store?.settings?.enableDeadZone) return false;
+        const selectedRegions = self.annotation?.regionStore?.selection?.list ?? [];
+        for (const region of selectedRegions) {
+          const bbox = region.bboxCoords;
+          if (!bbox || bbox.left === undefined) continue;
+          const w = bbox.right - bbox.left;
+          const h = bbox.bottom - bbox.top;
+          const offset = ((w + h) / 2) * 0.25;
+
+          if (
+            x >= bbox.left - offset &&
+            x <= bbox.right + offset &&
+            y >= bbox.top - offset &&
+            y <= bbox.bottom + offset
+          ) {
+            return true;
+          }
+        }
+        return false;
+      },
+
       /**
        * Determines if an interaction is allowed based on the current context and event properties.
        *
@@ -283,11 +317,11 @@ const TwoPointsDrawingTool = DrawingTool.named("TwoPointsDrawingTool")
 
         let { x1, y1, x2, y2 } = isEllipse
           ? {
-              x1: shape.startX,
-              y1: shape.startY,
-              x2: x,
-              y2: y,
-            }
+            x1: shape.startX,
+            y1: shape.startY,
+            x2: x,
+            y2: y,
+          }
           : Utils.Image.reverseCoordinates({ x: shape.startX, y: shape.startY }, { x, y });
 
         x1 = Math.max(0, x1);
@@ -315,6 +349,7 @@ const TwoPointsDrawingTool = DrawingTool.named("TwoPointsDrawingTool")
       mousedownEv(ev, [x, y]) {
         if (!self.canStartDrawing()) return;
         if (!self.isAllowedInteraction(ev)) return;
+        if (self.isInDeadZone(x, y)) return;
         startPoint = { x, y };
         if (currentMode === DEFAULT_MODE) {
           modeAfterMouseMove = DRAG_MODE;
@@ -457,6 +492,7 @@ const MultipleClicksDrawingTool = DrawingTool.named("MultipleClicksMixin")
       },
       _clickEv(ev, [x, y]) {
         if (!self.isAllowedInteraction(ev)) return;
+        if (!self.current() && self.isInDeadZone(x, y)) return;
         if (self.current()) {
           if (
             pointsCount === 1 &&
@@ -582,6 +618,7 @@ const ThreePointsDrawingTool = DrawingTool.named("ThreePointsDrawingTool")
       mousedownEv(ev, [x, y]) {
         if (!self.canStartDrawing() || self.annotation.isDrawing) return;
         if (!self.isAllowedInteraction(ev)) return;
+        if (self.isInDeadZone(x, y)) return;
         lastEvent = MOUSE_DOWN_EVENT;
         startPoint = { x, y };
         self.mode = "drawing";

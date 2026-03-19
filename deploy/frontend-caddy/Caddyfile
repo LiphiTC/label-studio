@@ -1,0 +1,182 @@
+{
+	auto_https off
+	admin off
+}
+
+:{$CADDY_PORT} {
+	{$CADDY_TLS_DIRECTIVE}
+
+	encode zstd gzip
+
+	@health path /_health
+	handle @health {
+		respond "ok" 200
+	}
+
+	@frontend path /react-app /react-app/*
+	@html_candidate {
+		not path /_health /api* /react-app* /static/* /data/* /tasks/*/resolve* /projects/*/resolve*
+	}
+	handle @frontend {
+		root * /srv/labelstudio
+		handle_path /react-app/* {
+			try_files {path} /index.html
+			file_server
+		}
+		file_server
+	}
+
+	@api path /api /api/*
+	handle @api {
+		@api_https expression {scheme} == "https"
+		handle @api_https {
+			reverse_proxy {$LS_BACKEND} {
+				transport http {
+					{$LS_BACKEND_CA_DIRECTIVE}
+				}
+
+				header_up Accept-Encoding identity
+				header_up Host {upstream_hostport}
+				header_up Origin {$LS_BACKEND_ORIGIN}
+				header_up Referer {$LS_BACKEND_ORIGIN}{uri}
+				header_up X-Forwarded-Host {hostport}
+				header_up X-Forwarded-Proto {scheme}
+				header_up X-Forwarded-Port {server_port}
+				header_up X-Forwarded-For {remote_host}
+				header_up Forwarded "for={remote_host};host={hostport};proto={scheme}"
+
+				header_down Set-Cookie "(?i);\\s*Domain=[^;]+" ""
+				header_down Set-Cookie "(?i);\\s*SameSite=(Lax|Strict)" "; SameSite=None"
+				header_down Location "^{$LS_BACKEND_ORIGIN}(.*)$" "{$LS_REWRITE_TARGET}$1"
+			}
+		}
+
+		@api_http expression {scheme} != "https"
+		handle @api_http {
+			reverse_proxy {$LS_BACKEND} {
+				transport http {
+					{$LS_BACKEND_CA_DIRECTIVE}
+				}
+
+				header_up Accept-Encoding identity
+				header_up Host {upstream_hostport}
+				header_up Origin {$LS_BACKEND_ORIGIN}
+				header_up Referer {$LS_BACKEND_ORIGIN}{uri}
+				header_up X-Forwarded-Host {hostport}
+				header_up X-Forwarded-Proto {scheme}
+				header_up X-Forwarded-Port {server_port}
+				header_up X-Forwarded-For {remote_host}
+				header_up Forwarded "for={remote_host};host={hostport};proto={scheme}"
+
+				header_down Set-Cookie "(?i);\\s*Domain=[^;]+" ""
+				header_down Set-Cookie "(?i);\\s*Secure" ""
+				header_down Set-Cookie "(?i);\\s*SameSite=None" "; SameSite=Lax"
+				header_down Location "^{$LS_BACKEND_ORIGIN}(.*)$" "{$LS_REWRITE_TARGET}$1"
+			}
+		}
+	}
+
+	@backend_https expression {scheme} == "https"
+	handle @backend_https {
+		handle @html_candidate {
+			replace {
+				match {
+					header Content-Type text/html*
+				}
+				{$LS_BACKEND_ORIGIN} "{$LS_REWRITE_TARGET}"
+			}
+
+			reverse_proxy {$LS_BACKEND} {
+				transport http {
+					{$LS_BACKEND_CA_DIRECTIVE}
+				}
+
+				header_up Accept-Encoding identity
+				header_up Host {upstream_hostport}
+				header_up Origin {$LS_BACKEND_ORIGIN}
+				header_up Referer {$LS_BACKEND_ORIGIN}{uri}
+				header_up X-Forwarded-Host {hostport}
+				header_up X-Forwarded-Proto {scheme}
+				header_up X-Forwarded-Port {server_port}
+				header_up X-Forwarded-For {remote_host}
+				header_up Forwarded "for={remote_host};host={hostport};proto={scheme}"
+
+				header_down Set-Cookie "(?i);\\s*Domain=[^;]+" ""
+				header_down Set-Cookie "(?i);\\s*SameSite=(Lax|Strict)" "; SameSite=None"
+				header_down Location "^{$LS_BACKEND_ORIGIN}(.*)$" "{$LS_REWRITE_TARGET}$1"
+			}
+		}
+
+		reverse_proxy {$LS_BACKEND} {
+			transport http {
+				{$LS_BACKEND_CA_DIRECTIVE}
+			}
+
+			header_up Host {upstream_hostport}
+			header_up Origin {$LS_BACKEND_ORIGIN}
+			header_up Referer {$LS_BACKEND_ORIGIN}{uri}
+			header_up X-Forwarded-Host {hostport}
+			header_up X-Forwarded-Proto {scheme}
+			header_up X-Forwarded-Port {server_port}
+			header_up X-Forwarded-For {remote_host}
+			header_up Forwarded "for={remote_host};host={hostport};proto={scheme}"
+
+			header_down Set-Cookie "(?i);\\s*Domain=[^;]+" ""
+			header_down Set-Cookie "(?i);\\s*SameSite=(Lax|Strict)" "; SameSite=None"
+			header_down Location "^{$LS_BACKEND_ORIGIN}(.*)$" "{$LS_REWRITE_TARGET}$1"
+		}
+	}
+
+	@backend_http expression {scheme} != "https"
+	handle @backend_http {
+		handle @html_candidate {
+			replace {
+				match {
+					header Content-Type text/html*
+				}
+				{$LS_BACKEND_ORIGIN} "{$LS_REWRITE_TARGET}"
+			}
+
+			reverse_proxy {$LS_BACKEND} {
+				transport http {
+					{$LS_BACKEND_CA_DIRECTIVE}
+				}
+
+				header_up Accept-Encoding identity
+				header_up Host {upstream_hostport}
+				header_up Origin {$LS_BACKEND_ORIGIN}
+				header_up Referer {$LS_BACKEND_ORIGIN}{uri}
+				header_up X-Forwarded-Host {hostport}
+				header_up X-Forwarded-Proto {scheme}
+				header_up X-Forwarded-Port {server_port}
+				header_up X-Forwarded-For {remote_host}
+				header_up Forwarded "for={remote_host};host={hostport};proto={scheme}"
+
+				header_down Set-Cookie "(?i);\\s*Domain=[^;]+" ""
+				header_down Set-Cookie "(?i);\\s*Secure" ""
+				header_down Set-Cookie "(?i);\\s*SameSite=None" "; SameSite=Lax"
+				header_down Location "^{$LS_BACKEND_ORIGIN}(.*)$" "{$LS_REWRITE_TARGET}$1"
+			}
+		}
+
+		reverse_proxy {$LS_BACKEND} {
+			transport http {
+				{$LS_BACKEND_CA_DIRECTIVE}
+			}
+
+			header_up Host {upstream_hostport}
+			header_up Origin {$LS_BACKEND_ORIGIN}
+			header_up Referer {$LS_BACKEND_ORIGIN}{uri}
+			header_up X-Forwarded-Host {hostport}
+			header_up X-Forwarded-Proto {scheme}
+			header_up X-Forwarded-Port {server_port}
+			header_up X-Forwarded-For {remote_host}
+			header_up Forwarded "for={remote_host};host={hostport};proto={scheme}"
+
+			header_down Set-Cookie "(?i);\\s*Domain=[^;]+" ""
+			header_down Set-Cookie "(?i);\\s*Secure" ""
+			header_down Set-Cookie "(?i);\\s*SameSite=None" "; SameSite=Lax"
+			header_down Location "^{$LS_BACKEND_ORIGIN}(.*)$" "{$LS_REWRITE_TARGET}$1"
+		}
+	}
+}
