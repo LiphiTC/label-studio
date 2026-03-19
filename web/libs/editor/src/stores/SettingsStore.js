@@ -73,6 +73,8 @@ const SettingsModel = types
     videoDrawOutside: types.optional(types.boolean, false),
 
     invertedZoom: types.optional(types.boolean, false),
+
+    enableDeadZone: types.optional(types.boolean, true),
   })
   .views((self) => ({
     get annotation() {
@@ -236,6 +238,10 @@ const SettingsModel = types
 
     setInvertedZoom(value) {
       self.invertedZoom = value;
+    },
+
+    toggleEnableDeadZone() {
+      self.enableDeadZone = !self.enableDeadZone;
     },
 
     setVideoHopSize(value) {

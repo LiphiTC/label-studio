@@ -94,4 +94,14 @@ export default {
     onChangeEvent: "toggleInvertedZoom",
     defaultValue: false,
   },
+  enableDeadZone: {
+    newUI: {
+      tags: "Image Tag",
+      title: "Enable dead zone around selected regions",
+      description: "Prevent accidental region creation near a selected region by ignoring clicks within a 5% offset around it",
+    },
+    description: "Enable 5% dead zone around selected regions",
+    onChangeEvent: "toggleEnableDeadZone",
+    defaultValue: false,
+  },
 };
